@@ -10,7 +10,7 @@ from torch.autograd import Variable
 
 
 class FocalLoss(nn.Module):
-    def __init__(self, num_classes=20, class_loss_scale=1.0, auto_loss_weights=False, initial_auto_loss_s=0):
+    def __init__(self, num_classes=20, class_loss_scale=1.0, auto_loss_weights=False, initial_auto_loss_s=0, norm_loss=False):
         '''
         :param num_classes: can be int or list of ints (for several class groups)
         :param class_loss_scale: scale that class part of loss is multiplyed to before being added to location part
@@ -22,6 +22,8 @@ class FocalLoss(nn.Module):
         self.auto_loss_weights = auto_loss_weights
         self.s_loc = nn.Parameter(initial_auto_loss_s * torch.ones(1))
         self.s_cls = nn.Parameter((initial_auto_loss_s + math.log(self.class_loss_scale)) * torch.ones(1))
+        self.norm_loss = norm_loss
+        assert not (norm_loss and auto_loss_weights), "Incorrect FocalLoss initialisation: norm_loss and auto_loss_weights both are True"
 
     def focal_loss(self, x, y, num_classes):
         '''Focal loss.
@@ -153,6 +155,10 @@ class FocalLoss(nn.Module):
             loss = 0.5*(torch.exp(self.s_loc[0])*loc_loss - self.s_loc[0] + torch.exp(self.s_cls[0])*cls_loss - self.s_cls[0])
             self.loss_dict = {'loss': loss, 'loc': loc_loss, 'cls': cls_loss, 's_loc': self.s_loc[0].data, 's_cls': self.s_cls[0].data}
         else:
-            loss = loc_loss+cls_loss
+            if self.norm_loss:
+                loss = ((loc_loss if loc_loss == 0 else loc_loss/loc_loss.detach()) +
+                        (cls_loss if cls_loss == 0 else cls_loss/cls_loss.detach()))
+            else:
+                loss = loc_loss+cls_loss
             self.loss_dict = {'loss':loss, 'loc':loc_loss, 'cls':cls_loss}
         return loss
