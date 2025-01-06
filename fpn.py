@@ -97,7 +97,7 @@ class FPN(nn.Module):
         '''
         _,_,H,W = y.size()
         if x is not None and len(x.shape) != 0:
-            return F.upsample(x, size=(H,W), mode='bilinear', align_corners=False) + y
+            return F.interpolate(x, size=(H,W), mode='bilinear', align_corners=False) + y
         else:
             return y
 
